@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+<name>console</name>
+<type>edit</type>
+<author>ChenyangGao(https://chenyanggao.github.io/)</author>
+<description>Open a new terminal, start a python console for editing ePub as a Sigil plugin.</description>
+<engine>python3.4</engine>
+<version>0.2</version>
+<autostart>true</autostart>
+<autoclose>true</autoclose>
+<oslist>osx,win,unx</oslist>
+</plugin>

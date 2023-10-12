@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tk m-title="configuration">
+    <script type="text/python">
+    from copy import deepcopy
+    from tkinter import filedialog
+    from tkinter.font import Font
+
+    font_bold_underline = Font(weight='bold', underline=1)
+
+    def set_config(config):
+        namemap['cb_selsh']['values'] = CONSOLES
+        namemap['cb_selsh'].current(CONSOLES.index(config['console']))
+        namemap['startup_errors'].set(config.get('errors', 'ignore'))
+        namemap['lb'].replace(config['startup'])
+        namemap['input_terminal'].set(config.get('terminal', ''))
+        namemap['input_terminal_args'].set(config.get('terminal_args', ''))
+        namemap['input_terminal_wait'].set(True)
+        namemap['input_index_url'].set(config.get('pip_index_url', ''))
+        namemap['input_trusted_host'].set(config.get('pip_trusted_host', ''))
+
+    def ask_save_config_dialog():
+        val = ask_save_config()
+        print(config['config'])
+        if val is not None:
+            config['configs'].append([val, deepcopy(config['config'])])
+
+    def ask_load_config_dialog():
+        ask_load_config()
+
+    def new_config():
+        config['config'] = deepcopy(config['default_config'])
+        set_config(config['config'])
+
+    def save_to_file():
+        filename = filedialog.asksaveasfilename()
+        if not filename.endswith('json'):
+            filename += '.json'
+        __import__('json').dump(config, open(filename, 'w'), ensure_ascii=False)
+
+    def load_from_file():
+        new_config = __import__('json').load(filedialog.askopenfile())
+        config.update(new_config)
+        set_config(config['config'])
+
+    def click_add_file():
+        filenames = filedialog.askopenfilenames()
+        if filenames:
+            namemap['lb'].insert(tk.END, *filenames)
+
+    def click_add_dir():
+        directory = filedialog.askdirectory()
+        if directory:
+            namemap['lb'].insert(tk.END, directory)
+
+    def click_del_sel():
+        namemap['lb'].onKeyBackSpace()
+
+    def click_clear():
+        namemap['lb'].delete(0, tk.END)
+
+    def click_move_up():
+        namemap['lb'].onKeyUp()
+
+    def click_move_down():
+        namemap['lb'].onKeyDown()
+
+    def click_move_top():
+        namemap['lb'].moveTop()
+
+    def click_move_bottom():
+        namemap['lb'].moveBottom()
+
+    try:
+        def startfile(path, _start=__import__('os').startfile):
+            _start(path)
+    except AttributeError:
+        _PLATFROM_SYSTEM = __import__('platform').system()
+        if _PLATFROM_SYSTEM == 'Linux':
+            def startfile(path, _start=__import__('subprocess').Popen):
+                _start(['xdg-open', path])
+        elif _PLATFROM_SYSTEM == 'Darwin':
+            def startfile(path, _start=__import__('subprocess').Popen):
+                _start(['open', path])
+        else:
+            def startfile(path):
+                pass
+        del _PLATFROM_SYSTEM
+
+    def change_startup_errors():
+        config['config']['errors'] = namemap['startup_errors'].get()
+
+    __app__.bind('&lt;Escape&gt;', lambda event: event.widget.quit())
+    </script>
+    <toplevel name-="ask_save_config" m-resizable="true, false">
+        <script type="text/python">
+        def confirm():
+            target = namemap['ask_save_config']
+            setattr(target, '$data', namemap['input_sv'].get())
+            target.destroy()
+
+        def cancel():
+            target = namemap['ask_save_config']
+            setattr(target, '$data', None)
+            target.destroy()
+        </script>
+        <label text="Enter a config name" />
+        <StringVar name-="input_sv" />
+        <entry textvariable="([input_sv])" />
+        <button text="Cancel" command="([cancel])" m-pack="side=right" />
+        <button text="Confirm" command="([confirm])" m-pack="side=right" />
+    </toplevel>
+    <toplevel name-="ask_load_config">
+        <script type="text/python">
+        def btn_click_del_lb_sel():
+            namemap['lb2'].onKeyBackSpace()
+
+        def btn_click_lb_clear():
+            namemap['lb2'].delete(0, tk.END)
+
+        def click_move_up():
+            namemap['lb2'].onKeyUp()
+
+        def click_move_down():
+            namemap['lb2'].onKeyDown()
+
+        def click_move_top():
+            namemap['lb2'].moveTop()
+
+        def click_move_bottom():
+            namemap['lb2'].moveBottom()
+         </script>
+        <frame>
+            <button text="Delete Selected" width="15" command="([btn_click_del_lb_sel])" m-pack="side=left">
+                <Tooltip text="Delete Selected" />
+            </button>
+            <button text="Clear All" width="15" command="([btn_click_lb_clear])" m-pack="side=left">
+                <Tooltip text="Clear All" />
+            </button>
+        </frame>
+        <frame>
+            <button text="↥" width="1" command="([click_move_up])" m-pack="side=left" >
+                <Tooltip text="Move selected items up" />
+            </button>
+            <button text="↧" width="1" command="([click_move_down])" m-pack="side=left" >
+                <Tooltip text="Move selected items down" />
+            </button>
+            <button text="🔝" width="1" command="([click_move_top])" m-pack="side=left" >
+                <Tooltip text="Move selected items up to top" />
+            </button>
+            <button text="⤓" width="1" command="([click_move_bottom])" m-pack="side=left" >
+                <Tooltip text="Move selected items down to bottom" />
+            </button>
+        </frame>
+        <MultiListbox 
+            name-="lb2" 
+            header_list="([[('Label', 10, 'Double click to modify the label'), 
+                         ('Config', 40, 'Double click to apply the value')]])"
+            data="([config['configs']])"
+            selectmode="extended"
+            borderwidth="0"
+            relief="flat"
+            exportselection="false"
+            selectborderwidth="0"
+            m-pack="side=left, fill=both, expand=true"
+        />
+        <script>
+        def lb_label_dbclick(event):
+            lb = event.widget
+            sels = lb.curselection()
+            if sels:
+                selected = sels[0]
+                val = ask_save_config()
+                if val is not None:
+                    lb.delete(selected)
+                    lb.insert(0, val)
+                    config['configs'][selected][0] = val
+
+        def lb_config_dbclick(event):
+            sels = event.widget.curselection()
+            if sels:
+                selected = sels[0]
+                config['config'] = deepcopy(config['configs'][selected][1])
+                set_config(config['config'])
+                namemap['ask_load_config'].destroy()
+
+        lb2.listboxes['Label'].bind('&lt;Double-Button-1&gt;', lb_label_dbclick)
+        lb2.listboxes['Config'].bind('&lt;Double-Button-1&gt;', lb_config_dbclick)
+        </script>
+    </toplevel>
+    <label bd="1" relief="sunken" anchor="w" m-pack="side=top,fill=x" text="close the window to take effect" bg="red" fg="yellow" font="([font_bold_underline])" />
+    <ttk.notebook m-pack="expand=true, fill=both">
+        <m-add text='basic'>
+            <frame>
+                <label text="Select a console" height="2" font="([font_bold_underline])">
+                    <Tooltip text="Select a console to start (Missing dependencies will be automatically installed)" />
+                </label>
+                <ttk.combobox name-="cb_selsh" state="readonly" >
+                    <Tooltip text="&lt;config::console&gt;" />
+                </ttk.combobox>
+                <ttk.separator orient="horizontal" m-pack="fill=x" />
+                <script type="text/python">
+                def cb_set_console(event):
+                    config['config']['console'] = event.widget.get()
+
+                cb_selsh.bind("&lt;&lt;ComboboxSelected&gt;&gt;", cb_set_console)
+                cb_selsh.bind("&lt;Return&gt;", lambda event: __app__.quit())
+                </script>
+                <label text="Add Some Startups" height="2" font="([font_bold_underline])">
+                    <Tooltip args-="text=([el_text])" >&lt;config::startup&gt;
+WARNING: PLEASE CONFIRM THE SECURITY OF THE ADDED STARTUP BY YOURSELF IN ADVANCE.
+
+Add some scripts that will be executed or registered automatically at startup.
+
+It will deal with the following situations separately:
+    1. execute:  A file (e.g., suffixed by .py or .pyz), or a folder (or a .zip file) with __main__.py, will be executed directly.
+    2. register: A folder (or .zip file) without __main__.py will be appended to sys.path.
+                    </Tooltip>
+                </label>
+                <frame>
+                    <StringVar value="ignore" name-="startup_errors" />
+                    <label text="Errors" m-grid="row=0,column=0" font="([font_bold_underline])" >
+                        <Tooltip text="&lt;config::errors&gt;&#xa;How to deal with errors?" />
+                    </label>
+                    <radiobutton variable="([startup_errors])" text="ignore" value="ignore" m-grid="row=0,column=1" command="([change_startup_errors])">
+                        <Tooltip text="To ignore the error and continue processing the remaining startups" />
+                    </radiobutton>
+                    <radiobutton variable="([startup_errors])" text="raise" value="raise" m-grid="row=0,column=2" command="([change_startup_errors])">
+                        <Tooltip text="To raise an exception and terminate" />
+                    </radiobutton>
+                    <radiobutton variable="([startup_errors])" text="stop" value="stop" m-grid="row=0,column=3" command="([change_startup_errors])">
+                        <Tooltip text="Stop processing the remaining startups and go directly to the console" />
+                    </radiobutton>
+                </frame>
+                <frame>
+                    <button text="Add Files" width="15" command="([click_add_file])" m-pack="side=left">
+                        <Tooltip text="Add Files" />
+                    </button>
+                    <button text="Add Folder" width="15" command="([click_add_dir])" m-pack="side=left">
+                        <Tooltip text="Add Folder" />
+                    </button>
+                </frame>
+                <frame>
+                    <button text="Delete Selected" width="15" command="([click_del_sel])" m-pack="side=left">
+                        <Tooltip text="Delete Selected" />
+                    </button>
+                    <button text="Clear All" width="15" command="([click_clear])" m-pack="side=left">
+                        <Tooltip text="Clear All" />
+                    </button>
+                </frame>
+                <frame>
+                    <button text="↥" width="1" command="([click_move_up])" m-pack="side=left" >
+                        <Tooltip text="Move selected items up" />
+                    </button>
+                    <button text="↧" width="1" command="([click_move_down])" m-pack="side=left" >
+                        <Tooltip text="Move selected items down" />
+                    </button>
+                    <button text="🔝" width="1" command="([click_move_top])" m-pack="side=left" >
+                        <Tooltip text="Move selected items up to top" />
+                    </button>
+                    <button text="⤓" width="1" command="([click_move_bottom])" m-pack="side=left" >
+                        <Tooltip text="Move selected items down to bottom" />
+                    </button>
+                </frame>
+                <DragDropListbox name-="lb" selectmode="extended" m-pack="side=left,fill=both,expand=true" >
+                    <Tooltip text="&lt;config::startup&gt;" />
+                </DragDropListbox>
+                <scrollbar name-="sc" orient="vertical" m-pack="side=left,fill=y"/>
+            </frame>
+        </m-add>
+        <m-add text='environment'>
+            <frame>
+                <label text="Terminal emulator" height="2" font="([font_bold_underline])" >
+                    <Tooltip text="A terminal emulator, terminal application, or term, is a computer program that emulates a video terminal within some other display architecture. &#xa;Though typically synonymous with a console or text terminal, the term terminal covers all remote terminals, including graphical interfaces. A terminal emulator inside a graphical user interface is often called a terminal window." />
+                </label>
+                <frame m-pack="fill=x" >
+                    <StringVar name-="input_terminal" />
+                    <StringVar name-="input_terminal_args" />
+                    <BooleanVar name-="input_terminal_wait" />
+                    <script type="text/python">
+                    def btn_ask_terminal():
+                        filname = filedialog.askopenfilename()
+                        if filname:
+                            namemap['input_terminal'].set(filname)
+
+                    input_terminal.trace('w', lambda *args: config['config'].update(terminal=namemap['input_terminal'].get()))
+                    input_terminal_args.trace('w', lambda *args: config['config'].update(terminal_args=namemap['input_terminal_args'].get()))
+                    input_terminal_wait.trace('w', lambda *args: config['config'].update(terminal_wait=namemap['input_terminal_wait'].get()))
+                    </script>
+                    <frame m-pack="fill=x" >
+                        <label text="terminal" width="10" m-pack="side=left" >
+                            <Tooltip  args-="text=([el_text])" >Please enter the executable path of a terminal emulator app.
+
+If not specified, it is automatically selected according to the platform:
+  - Windows: powershell.exe
+  - Mac OSX: Terminal.app
+  - Linux: The operating system default terminal app.
+</Tooltip>
+                        </label>
+                        <entry textvariable="([input_terminal])" m-pack="side=left, expand=true, fill=x" >
+                            <Tooltip text="&lt;config::terminal&gt;" />
+                        </entry>
+                        <button text="…" m-pack="side=right" command="([btn_ask_terminal])" >
+                            <Tooltip text="Select an executable" />
+                        </button>
+                    </frame>
+                    <frame m-pack="fill=x" >
+                        <label text="arguments" width="10" m-pack="side=left" >
+                            <Tooltip text="Please specify some arguments to the above terminal emulator app." />
+                        </label>
+                        <entry textvariable="([input_terminal_args])" m-pack="side=left, expand=true, fill=x" >
+                            <Tooltip text="&lt;config::terminal_args&gt;" />
+                        </entry>
+                        <Checkbutton text="wait" variable="([input_terminal_wait])" state="disabled" m-pack="side=right" >
+                            <Tooltip text="&lt;config::terminal_wait&gt;&#xa;The plug-in will wait for the terminal app to exit" />
+                        </Checkbutton>
+                    </frame>
+                </frame>
+                <ttk.separator orient="horizontal" m-pack="fill=x" />
+                <label text="pip" height="2" font="([font_bold_underline])" >
+                    <Tooltip text="pip is the package installer for Python. &#xa;You can use pip to install packages from the Python Package Index (PyPI) and other indexes." />
+                </label>
+                <frame m-pack="fill=x" >
+                    <StringVar name-="input_index_url" />
+                    <StringVar name-="input_trusted_host" />
+                    <script type="text/python">
+                    input_index_url.trace('w', lambda *args: config['config'].update(pip_index_url=namemap['input_index_url'].get()))
+                    input_trusted_host.trace('w', lambda *args: config['config'].update(pip_trusted_host=namemap['input_trusted_host'].get()))
+                    </script>
+                    <frame m-pack="fill=x" >
+                        <label text="index url" width="10" m-pack="side=left" >
+                            <Tooltip text="Base URL of the Python Package Index (default https://pypi.org/simple). &#xa;This should point to a repository compliant with PEP 503 (the simple repository API) or a local directory laid out in the same format." />
+                        </label>
+                        <entry textvariable="([input_index_url])" m-pack="side=left,expand=true,fill=x" >
+                            <Tooltip text="&lt;config::pip_index_url&gt;" />
+                        </entry>
+                    </frame>
+                    <frame m-pack="fill=x" >
+                        <label text="trusted host" width="10" m-pack="side=left" >
+                            <Tooltip text="Mark this host or host:port pair as trusted, even though it does not have valid or any HTTPS." />
+                        </label>
+                        <entry textvariable="([input_trusted_host])" m-pack="side=left,expand=true,fill=x" >
+                            <Tooltip text="&lt;config::pip_trusted_host&gt;" />
+                        </entry>
+                    </frame>
+                </frame>
+            </frame>
+        </m-add>
+         <m-add text='packages'>
+            <label text="Coming soon ..." font="([Font(weight='bold', size=20)])" m-pack="side=left" />
+         </m-add>
+    </ttk.notebook>
+    <script type="text/python">
+    def lb_startfile(event):
+        path = event.widget.get(event.widget.curselection())
+        startfile(path)
+
+    lb.config(yscrollcommand=sc.set)
+    sc.config(command=lb.yview)
+    lb.bind('&lt;Double-Button-1&gt;', lb_startfile)
+    set_config(config['config'])
+    </script>
+    <menu>
+        <menu label="File">
+            <method>
+                <add_command label="Save to File" command="([save_to_file])" />
+                <add_command label="Load from File" command="([load_from_file])" />
+                <add_separator />
+                <add_command label="Exit" command="([__app__.quit])" />
+            </method>
+        </menu>
+        <menu label="Edit">
+            <method>
+                <add_command label="New" command="([new_config])" />
+                <add_command label="Save" command="([ask_save_config_dialog])" />
+                <add_command label="Load" command="([ask_load_config_dialog])" />
+            </method>
+        </menu>
+    </menu>
+</tk>
